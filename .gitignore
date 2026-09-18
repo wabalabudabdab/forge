@@ -1,0 +1,4 @@
+node_modules/
+.agent-loop/
+.env*
+.DS_Store
