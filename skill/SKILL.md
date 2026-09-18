@@ -1,88 +1,88 @@
 ---
 name: forge
-description: Агентский цикл-директор. Берёт задачи из очереди проекта и автономно доводит каждую до мёрджа через ворота (тесты/типы/линт/сборка) и независимое ревью, с самоуборкой веток. Триггеры — "forge", "/forge", "выкуй", "крути проект", "доведи проект", "погнали цикл". Для зрелого кода (IMPROVE) и greenfield (BUILD). НЕ для одноразовой правки — для итеративного доведения по очереди задач.
+description: Autonomous agent loop-director. Takes tasks from a project queue and drives each one to a merge through gates (tests/types/lint/build) and independent review, cleaning up its own branches. Triggers — "forge", "/forge", "run the loop", "drive the project", "work the queue". Works on mature code (IMPROVE) and greenfield (BUILD). NOT for a one-off edit — for iterative work through a task queue.
 ---
 
-# forge — агентский цикл доведения проекта
+# forge — an agent loop that drives a project to done
 
-> Директор, который берёт проект и крутит его по очереди задач до рабочего состояния,
-> а потом улучшает. Каждая задача проходит полный круг и **убирает за собой**.
+> A director that picks up a project and works it task by task until it runs,
+> then keeps improving it. Every task goes through the full circle and **cleans up after itself**.
 
-## Активация
-Триггеры: `forge`, `/forge`, «выкуй», «крути проект», «доведи проект», «погнали цикл».
+## Activation
+Triggers: `forge`, `/forge`, "run the loop", "drive the project", "work the queue".
 
-## Что делает (один проход = одна задача)
-`SELECT` (верхняя задача из очереди) → `BUILD` (coder в своей ветке) →
-`GATE` (ворота, критерий **NO-REGRESSION**) → `REVIEW` (reviewer-logical + reviewer-deep по свежему дифф-артефакту) →
-`INTEGRATE` (мёрдж + удаление ветки) → `RECORD` (журнал + state + карточка в STATE.md).
-Внешний цикл идёт по очереди, пока есть размеченные карточки, в `STATE.md` не стоит `Pause: да` и не исчерпан потолок токенов.
-Непрошедшая задача НЕ останавливает цикл: она получает `retry` с замечаниями в `state.md`,
-после `maxAttempts` уходит в `BLOCKED` (ветка остаётся для разбора), цикл берёт следующую.
+## What it does (one pass = one task)
+`SELECT` (top card in the queue) → `BUILD` (coder on its own branch) →
+`GATE` (gates, criterion **NO-REGRESSION**) → `REVIEW` (logical + deep reviewers on a freshly generated diff artifact) →
+`INTEGRATE` (merge + branch deletion) → `RECORD` (journal + state + card update in STATE.md).
+The outer loop keeps going while triaged cards remain, `STATE.md` does not say `Pause: yes`, and the token ceiling is not exhausted.
+A failing task does NOT stop the loop: it gets a `retry` with the reviewer's objections recorded in `state.md`,
+and after `maxAttempts` it becomes `BLOCKED` (branch left in place for a human) while the loop takes the next card.
 
-## Предусловия (ОБЯЗАТЕЛЬНО — иначе повторятся грабли обкатки)
-Перед запуском убедись, что:
-1. **Работаем в песочнице/копии**, не в боевом репо (полная автономия → изолируй риск).
-2. **БД изолирована** (свой контейнер/порт), если тесты интеграционные — иначе цикл пишет в чужую базу.
-3. **`.agent-loop/` и `.env*` вынесены из-под git** (`.gitignore` + `git rm --cached`) — иначе грязь и секреты лезут в коммиты.
-4. **Baseline снят** в `.agent-loop/journal.md` (tests passed/failed, lint errors) — без него NO-REGRESSION не измерить.
-5. **Очередь размечена** в `STATE.md`: карточки D-NNN от forge-discover с `**Решение:** в работу`.
-6. **Denylist сверен с проектом** — дефолт запрещает `.env*`, ключи, CI/Docker, `/auth/`.
+## Preconditions (MANDATORY — skipping these reproduces the failures this design came from)
+Before starting, make sure that:
+1. **You are in a sandbox clone**, not the production repository (full autonomy → contain the risk).
+2. **The database is isolated** (its own container/port) if tests are integration tests — otherwise the loop writes into someone else's data.
+3. **`.agent-loop/` and `.env*` are out of git tracking** (`.gitignore` + `git rm --cached`) — otherwise noise and secrets end up in commits.
+4. **A baseline is recorded** in `.agent-loop/journal.md` (tests passed/failed, lint errors) — without it NO-REGRESSION cannot be measured.
+5. **The queue is triaged** in `STATE.md`: D-NNN cards from forge-discover marked `**Decision:** go`.
+6. **The denylist matches the project** — the default blocks `.env*`, keys, CI/Docker files, `/auth/`.
 
-## Шаг 0 — forge-discover (разведка, код не трогает)
-Триггеры: «forge discover», «разведка», «найди работу». Скрипт `~/.claude/skills/forge/discover.workflow.js`.
-Четыре источника: MECH (lint/tsc/tests, пишет `.agent-loop/baseline.json`), IR (`docs/druid/ir.json` ↔ роуты/схемы),
-BEHAVIOR (`docs/druid/behavior/*.md` ↔ код в бэкенде и frontend-app), DEEP (ошибки логики по модулям src и frontend/src).
-Каждую находку опровергает независимый агент; «не реализовано» идёт отдельным списком, не карточками.
-Результат — раздел `## Discover — <дата>` в `STATE.md` с карточками: Где / Код / Разбор / Причина / Спека / Варианты исправления / Готово, когда / Решение.
+## Step 0 — forge-discover (read-only reconnaissance, never touches code)
+Triggers: "forge discover", "find work", "what needs doing". Script: `discover.workflow.js`.
+Four sources: MECH (lint/tsc/tests, writes `.agent-loop/baseline.json`), IR (`docs/druid/ir.json` ↔ routes/schemas),
+BEHAVIOR (`docs/druid/behavior/*.md` ↔ backend and frontend code), DEEP (logic defects across source modules).
+Every finding is handed to an independent agent whose job is to refute it; "not implemented" goes into a separate list, not into cards.
+The result is a `## Discover — <date>` section in `STATE.md` with cards: Where / Code / Analysis / Cause / Spec / Fix options / Done when / Decision.
 ```
-Workflow({ scriptPath: "~/.claude/skills/forge/discover.workflow.js",
-  args: { projectPath, extraPaths, stateFile, druidDir, gates: { lint, test }, maxTokens, runAt: "<дата>" } })
+Workflow({ scriptPath: "discover.workflow.js",
+  args: { projectPath, extraPaths, stateFile, druidDir, gates: { lint, test }, maxTokens, runAt: "<date>" } })
 ```
-Дефолты — плейсхолдеры, переопределяйте через args. `runAt` передавать всегда: скрипту `Date` недоступен.
-Человек размечает **Решение:** `в работу` (можно `в работу, вариант 2`), `отклонить`, `позже`. Только после этого — цикл.
+Defaults are placeholders — override them through args. Always pass `runAt`: the script has no access to `Date`.
+A human triages each card with **Decision:** `go` (or `go, option 2`), `reject`, `later`. Only then does the loop run.
 
-## Как запускается цикл
-Скрипт цикла: `~/.claude/skills/forge/forge.workflow.js`. Запуск:
+## Running the loop
+Loop script: `forge.workflow.js`. Invocation:
 ```
 Workflow({
-  scriptPath: "~/.claude/skills/forge/forge.workflow.js",
+  scriptPath: "forge.workflow.js",
   args: {
-    projectPath: "<git-репо>",
-    stateFile:   "<STATE.md с карточками>",
+    projectPath: "<git repo>",
+    stateFile:   "<STATE.md holding the cards>",
     baseBranch:  "main",
     maxTasks:    3,
     gates: { lint: "...", build: "...", test: "..." },
-    baseline: null,          // null → .agent-loop/baseline.json от discover
-    maxAttempts: 3,          // попыток на задачу суммарно по прогонам
-    maxTokens: 600_000,      // потолок output-токенов на прогон
+    baseline: null,          // null → .agent-loop/baseline.json written by discover
+    maxAttempts: 3,          // attempts per task, counted across runs
+    maxTokens: 600_000,      // output-token ceiling for one run
     denylist: [".env", ".pem", ".key", ".gitlab-ci.yml", "docker-compose", "Dockerfile", "/auth/"]
   }
 })
 ```
-Kill switch: `Pause: да` в шапке `STATE.md` — следующий SELECT завершит цикл, не тронув код.
-Если args не передать — дефолты под ваш проект (см. шапку скрипта).
+Kill switch: `Pause: yes` in the `STATE.md` header — the next SELECT ends the run without touching code.
+If no args are passed, the defaults in the script header apply.
 
-## Гарантии (зашиты, проверены на обкатке T-001)
-- **NO-REGRESSION**: не вливает, если упали ранее зелёные тесты / сломался build / выросли lint-ошибки.
-- **Дифф-артефакт всегда свежий** (`rm` перед генерацией) — ревьюер не судит по устаревшему.
-- **BUILD не коммитит env/секреты** — откат `.env*` перед коммитом + самопроверка.
-- **Самоуборка**: ветка мёрджится `--no-ff` и удаляется; зависших веток не остаётся.
-- **Лимит попыток** (`maxAttempts`): повтор идёт с учётом прошлых замечаний из `state.md`, старая ветка пересоздаётся от базы; после лимита — `BLOCKED`, одна ветка на задачу, зависших дублей нет.
-- **Denylist по факту**, не по обещанию: `git diff --name-only` сверяется с паттернами до ревью; нарушение = не влито.
-- **Потолок токенов на прогон** (`maxTokens`) и учёт токенов по каждой задаче в журнале.
-- **`run-log.md`** — append-only запись на каждый прогон: сколько задач, итоги, токены, причина остановки.
+## Guarantees (built in, each one earned during the runs)
+- **NO-REGRESSION**: nothing is merged if previously passing tests fail, the build breaks, or lint errors grow.
+- **The diff artifact is always fresh** (`rm` before generation) — a reviewer never judges by a stale file.
+- **BUILD never commits env files or secrets** — `.env*` reverted before commit plus a self-check.
+- **Self-cleanup**: the branch is merged `--no-ff` and deleted; no orphan branches are left behind.
+- **Attempt limit** (`maxAttempts`): a retry carries the previous objections from `state.md` and re-creates the branch from base; after the limit the task goes `BLOCKED` with exactly one branch, no duplicates.
+- **Denylist verified as fact**, not promised: `git diff --name-only` is matched against the patterns before review; a violation is never merged.
+- **Token ceiling per run** (`maxTokens`) with per-task accounting in the journal.
+- **`run-log.md`** — one append-only entry per run: tasks attempted, outcomes, tokens, stop reason.
 
-## Файлы состояния (`.agent-loop/`, вне git)
-| файл | роль |
+## State files (`.agent-loop/`, outside git)
+| file | role |
 |---|---|
-| `STATE.md` (проекта) | очередь и итоги для человека: карточки, Done, Blocked, `Pause:` |
-| `state.md` | `\| id \| attempts \| status \| last_issues \|` — память попыток между прогонами |
-| `baseline.json` | от discover: testsPassed, lintErrors |
-| `journal.md` | подробности по задачам (gate, итог, токены) |
-| `run-log.md` | одна запись на прогон (и discover, и цикл) |
+| `STATE.md` (project's) | queue and outcomes for the human: cards, Done, Blocked, `Pause:` |
+| `state.md` | `\| id \| attempts \| status \| last_issues \|` — attempt memory between runs |
+| `baseline.json` | written by discover: testsPassed, lintErrors |
+| `journal.md` | per-task detail (gate, outcome, tokens) |
+| `run-log.md` | one entry per run (both discover and the loop) |
 
-Источник дисциплины — методология loop-engineering (maker/checker, лимит попыток, denylist, бюджет, run-log, kill switch).
+The discipline comes from loop engineering: maker/checker, attempt limits, denylist, budget, run-log, kill switch.
 
-## Режимы
-- **IMPROVE** (зрелый код): ворота = тесты/типы/линт/сборка. Проверен на биобанке (biome 83→0).
-- **BUILD** (greenfield): ворота = артефакт валиден + компиляция. Для Workflow-скриптов — компиляция в async-обёртке (`vm.Script`), НЕ голый `node --check` (даёт ложную ошибку на top-level return).
+## Modes
+- **IMPROVE** (mature code): gates = tests/types/lint/build. Proven on a production monorepo (lint 83 → 0, then 12 failing tests → 0).
+- **BUILD** (greenfield): gates = artifact validity + compilation. For Workflow scripts, compile inside an async wrapper (`vm.Script`), NOT bare `node --check` — the latter reports a false error on a top-level return.
