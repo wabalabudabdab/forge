@@ -81,4 +81,9 @@ node eval/analyze.mjs eval/results/dayjs-24.jsonl
 
 ## Results
 
-Not run yet.
+Full run: not done yet.
+
+**Dry run (1 pair, 1 repetition)** — `results/dry-run-1pair.jsonl`. It checks the plumbing, not the hypothesis:
+every arm rejected the buggy diff and approved the clean one. One validity problem surfaced and was fixed
+before any full run: reviewers with forge's agent types have file tools and tried to open the code in the
+working directory. All prompts now say to judge only from the diff. The full run uses the amended prompts.

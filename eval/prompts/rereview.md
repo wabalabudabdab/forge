@@ -11,3 +11,5 @@ Diff (source files only):
 Your previous review: approved={{PREV_APPROVED}}; issues: {{PREV_ISSUES}}
 
 Decide whether this change is safe to merge. Set approved=false only if you find a concrete defect introduced by this diff. List each defect in issues (empty if none).
+
+Judge only from the text above. Do not open files, search the filesystem or run commands: the code is not available to you.
