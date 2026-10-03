@@ -47,10 +47,10 @@ are detectable; smaller ones are reported as inconclusive, not as "no effect".
 # 1. corpus (no model calls); the clone must have dependencies installed
 git clone https://github.com/iamkun/dayjs && (cd dayjs && npm ci --ignore-scripts)
 node eval/build-corpus.mjs --repo ./dayjs --test "npx jest --silent" \
-  --src '^src/' --tests '(^test/|\.test\.)' --want 30 --scan 900 --out eval/corpus/dayjs-30
+  --src '^src/' --tests '(^test/|\.test\.)' --want 30 --scan 900 --out eval/corpus/dayjs-24
 
 # 2. args for the workflow (corpus + committed prompts)
-node eval/make-args.mjs eval/corpus/dayjs-30/items.jsonl 3 > args.json
+node eval/make-args.mjs eval/corpus/dayjs-24/items.jsonl 3 > args.json
 
 # 3. run in Claude Code, one model arm per run (a Workflow run is capped at 1000 agents;
 #    one arm is 60 items × 3 reps × 2 calls = 360):
@@ -58,10 +58,10 @@ node eval/make-args.mjs eval/corpus/dayjs-30/items.jsonl 3 > args.json
 #    then arms: ["same-mandate"] and arms: ["forge"]; save each returned object to a file
 
 # 4. results
-node eval/save-results.mjs < run-1.json >  eval/results/dayjs-30.jsonl
-node eval/save-results.mjs < run-2.json >> eval/results/dayjs-30.jsonl
-node eval/save-results.mjs < run-3.json >> eval/results/dayjs-30.jsonl
-node eval/analyze.mjs eval/results/dayjs-30.jsonl
+node eval/save-results.mjs < run-1.json >  eval/results/dayjs-24.jsonl
+node eval/save-results.mjs < run-2.json >> eval/results/dayjs-24.jsonl
+node eval/save-results.mjs < run-3.json >> eval/results/dayjs-24.jsonl
+node eval/analyze.mjs eval/results/dayjs-24.jsonl
 ```
 
 `npm test` inside `eval/` runs the unit tests for the mutator and the statistics.
