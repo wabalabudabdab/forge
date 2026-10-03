@@ -38,8 +38,8 @@ Prompts are in `prompts/` and are fixed before the first run.
 **Metrics.** Detection rate (buggy rejected / buggy), false-rejection rate (clean rejected / clean),
 output tokens per item; Wilson 95% intervals; detection per mutation operator.
 
-**Sample.** 30 pairs × 3 repetitions = 180 judgements per arm. Differences of roughly 20 percentage points
-are detectable; smaller ones are reported as inconclusive, not as "no effect".
+**Sample.** 24 pairs (scanning 900 commits yielded 24 oracle-confirmed mutants) × 3 repetitions: 72 buggy and
+72 clean judgements per arm. Differences of roughly 25 percentage points are detectable; smaller ones are reported as inconclusive, not as "no effect".
 
 ## Reproduce
 
@@ -53,7 +53,7 @@ node eval/build-corpus.mjs --repo ./dayjs --test "npx jest --silent" \
 node eval/make-args.mjs eval/corpus/dayjs-24/items.jsonl 3 > args.json
 
 # 3. run in Claude Code, one model arm per run (a Workflow run is capped at 1000 agents;
-#    one arm is 60 items × 3 reps × 2 calls = 360):
+#    one arm is 48 items × 3 reps × 2 calls = 288):
 #    Workflow({ scriptPath: "eval/review-eval.workflow.js", args: { ...args.json, arms: ["none", "single-2pass"] } })
 #    then arms: ["same-mandate"] and arms: ["forge"]; save each returned object to a file
 
@@ -70,6 +70,10 @@ node eval/analyze.mjs eval/results/dayjs-24.jsonl
 
 - One repository, one language, one model family. External validity is narrow.
 - Only test-covered code can enter the corpus, and mutants are simpler than real agent-made bugs.
+- Operators are unbalanced in the dayjs corpus (11 logical swaps, 6 condition negations, 6 comparison flips,
+  1 boundary shift, 0 removed guards), so per-operator rates for the rare ones mean nothing.
+- 344 of 900 scanned commits were dropped because their tests fail with today's dependencies; the corpus
+  leans towards recent code.
 - Reviewers judge diffs written by humans, not by forge's coding agent.
 - `forge` uses custom agent types whose system prompts also differ; "role" includes that.
 - Token spend is measured per arm and averaged per item, not per call.
