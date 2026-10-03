@@ -42,7 +42,9 @@ function sites(code) {
     const close = closeParen(code, open)
     if (close < 0) continue
     const cond = code.slice(open + 1, close)
-    add('condition-negate', open + 1, close, `!(${cond})`)
+    // "!x" / "!a.b()" → drop the "!"; anything else → wrap. Avoids the giveaway "!(!x)".
+    const simpleNot = cond.match(/^!([\w$.]+(\([^()]*\))?)$/)
+    add('condition-negate', open + 1, close, simpleNot ? simpleNot[1] : `!(${cond})`)
     if (m[1] === 'if' && /^\s*(return|throw)\b/.test(code.slice(close + 1))) add('guard-remove', open + 1, close, 'false')
   }
   return out

@@ -10,8 +10,8 @@
 
 ## 3. Corpus builder
 
-- [ ] 3.1 Implement eval/build-corpus.mjs: pick small commits from a target repo, verify clean tests pass, keep killable mutants
-- [ ] 3.2 Smoke-run on a public repo with a small sample; commit the build log, not the cloned repo
+- [x] 3.1 Implement eval/build-corpus.mjs: pick small commits from a target repo, verify clean tests pass, keep killable mutants
+- [x] 3.2 Smoke-run on a public repo with a small sample; commit the build log, not the cloned repo
 
 ## 4. Review arms
 

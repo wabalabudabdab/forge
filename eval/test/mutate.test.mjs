@@ -75,3 +75,12 @@ test('each operator produces the expected rewrite', () => {
   assert.equal(one('if (a && b) go()', 'logical-swap'), 'if (a || b) go()')
   assert.equal(one('  if (!user) return null', 'guard-remove'), '  if (false) return null')
 })
+
+test('negating a simple negation drops the "!" instead of double-negating', () => {
+  const d = `--- a/x.js\n+++ b/x.js\n@@ -0,0 +1 @@\n+if (!this.isValid()) go()\n`
+  for (let s = 0; s < 200; s++) {
+    const m = mutate(d, s)
+    if (m && m.operator === 'condition-negate') return assert.equal(m.mutated.slice(1), 'if (this.isValid()) go()')
+  }
+  assert.fail('condition-negate never chosen')
+})
