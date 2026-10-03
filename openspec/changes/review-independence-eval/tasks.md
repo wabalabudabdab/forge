@@ -1,12 +1,12 @@
 ## 1. Mutator (test-first)
 
-- [ ] 1.1 Write failing tests for eval/lib/mutate.mjs from the spec scenarios (node:test)
-- [ ] 1.2 Implement mutate.mjs until tests pass
+- [x] 1.1 Write failing tests for eval/lib/mutate.mjs from the spec scenarios (node:test)
+- [x] 1.2 Implement mutate.mjs until tests pass
 
 ## 2. Analysis (test-first)
 
-- [ ] 2.1 Write failing tests for eval/lib/stats.mjs (Wilson interval, per-arm and per-operator aggregation)
-- [ ] 2.2 Implement stats.mjs and eval/analyze.mjs
+- [x] 2.1 Write failing tests for eval/lib/stats.mjs (Wilson interval, per-arm and per-operator aggregation)
+- [x] 2.2 Implement stats.mjs and eval/analyze.mjs
 
 ## 3. Corpus builder
 
