@@ -21,11 +21,16 @@ H2: role difference matters beyond independence — logical+deep beats two revie
   removed early return/guard.
 - **Arms (all see the same diff + commit message, never the tests):**
   - A0 `none` — approve everything (analytic baseline, no model call)
-  - A1 `single-2pass` — one generic reviewer, two independent passes, reject if either rejects
-  - A2 `same-mandate` — two fresh reviewers, both generic
-  - A3 `forge` — reviewer-logical + reviewer-deep (current design)
-  A1–A3 make two calls each, so call count is matched; tokens are measured and reported, not assumed equal.
+  - A1 `single-2pass` — one generic reviewer; the second pass sees its own first verdict (more compute, no independence)
+  - A2 `same-mandate` — two generic reviewers in fresh contexts (independence, no role difference)
+  - A3 `forge` — `reviewer-logical` + `reviewer-deep` with forge's mandates (independence + role difference)
+  A1–A3 make two calls per item and reject if either call rejects. A1 vs A2 isolates independence;
+  A2 vs A3 isolates role difference. Tokens are measured per arm and reported, not assumed equal.
+  A3 uses forge's custom agent types, so its system prompts also differ — part of "role", stated as a confound.
   The "self-review in the builder's context" arm needs a builder and is deferred (noted in limits).
+- **Runtime constraint.** Workflow scripts have no filesystem access: a runner reads the corpus and the
+  committed prompts and passes them as `args`; the script returns judgement records, which the runner saves.
+  Arms run one after another so each arm's token spend is a clean delta of `budget.spent()`.
 - **Sample.** ~30 clean diffs, each with one killable mutant → 60 items; 3 repetitions per item per arm
   (model nondeterminism) → 180 judgements per arm. Detects ≈20 pp differences in detection rate; smaller
   effects are reported as inconclusive, not as "no effect".
