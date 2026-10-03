@@ -11,9 +11,13 @@
 // Run: Workflow({ scriptPath: ".../discover.workflow.js", args: { ...cfg } })
 // args (all optional):
 //   projectPath  — backend git repo (also holds .agent-loop/)
-//   extraPaths   — other codebases to search for behavior implementations (e.g. frontend-app)
+//   extraPaths   — other codebases to search for behavior implementations (e.g. a separate frontend repo)
 //   stateFile    — STATE.md to write the cards into
 //   druidDir     — directory holding ir.json and behavior/
+//   layout       — where code lives, relative to projectPath:
+//                    moduleRoots — dirs whose depth-2 subdirectories DEEP reviews (default ['src'])
+//                    routesDir   — dir holding route handlers, or null to locate routes by search (default null)
+//                    irCodeDirs  — dirs compared against the IR (default ['src'])
 //   gates        — { lint, test } shell commands
 //   maxTokens    — token ceiling for the run; phases past the ceiling are skipped and logged
 //   runAt        — date string for the header (the script has no access to Date)
@@ -38,6 +42,7 @@ const cfg = {
   stateFile: '/path/to/your-project/STATE.md',
   druidDir: '/path/to/your-project/docs/druid',
   gates: { lint: 'bun run lint', test: 'bun run test' },
+  layout: { moduleRoots: ['src'], routesDir: null, irCodeDirs: ['src'] },
   maxTokens: 3_000_000,
   runAt: '',
   ...(args || {}),
@@ -45,6 +50,12 @@ const cfg = {
 const P = cfg.projectPath
 const D = cfg.druidDir
 const CODEBASES = [P, ...cfg.extraPaths].join(', ')
+const L = { moduleRoots: ['src'], routesDir: null, irCodeDirs: ['src'], ...(cfg.layout || {}) }
+const MODULE_ROOTS = L.moduleRoots.map((d) => `${P}/${d}`).join(', ')
+const IR_CODE = L.irCodeDirs.map((d) => `${P}/${d}`).join(', ')
+const ROUTE_LOOKUP = L.routesDir
+  ? `there is no route for its path under ${P}/${L.routesDir}`
+  : `a search of ${IR_CODE} finds no handler registered for its path`
 
 const FINDING = {
   type: 'object',
@@ -118,7 +129,7 @@ const scout = await agent(
   `Using Read/Glob/Bash (read-only), collect:
 - ir_resources: every resource name from ${D}/ir.json ("resources[].name").
 - behavior_files: the file names in ${D}/behavior/.
-- modules: subdirectories containing .ts/.tsx under ${P}/src (depth 2, e.g. "src/server/routes", "src/db/actions", "src/shared/helpers") and under ${P}/frontend/src (depth 2). Only directories that hold code; skip tests, types, consts.
+- modules: subdirectories that contain source files, at depth 2 under each of: ${MODULE_ROOTS}. Return paths relative to ${P}. Only directories that hold code; skip tests, types, consts.
 Return the lists.`,
   { schema: SCOUT, agentType: 'explorer', phase: 'SCOUT', effort: 'low' },
 )
@@ -146,8 +157,8 @@ if (canRun('IR', 300_000)) {
     scout.ir_resources.map((name) => () =>
       agent(
         `Resource "${name}" from ${D}/ir.json (find its object under resources; mind the x-notes at the root of the file — they define the rules for paths, types and encryption).
-If the resource has x-existing != true AND there is no route for its path under ${P}/src/server/routes, it is not implemented: emit one line in not_implemented and leave findings empty.
-Otherwise compare it against the code in ${P}/src (routes, shared/schemas, db/actions, db/pg): path and operations, attributes (nullable/readonly/default), permit, validators, unique, x-role-values.
+If the resource has x-existing != true AND ${ROUTE_LOOKUP}, it is not implemented: emit one line in not_implemented and leave findings empty.
+Otherwise compare it against the code in ${IR_CODE} (route handlers, request/response schemas, data-access code): path and operations, attributes (nullable/readonly/default), permit, validators, unique, x-role-values.
 A finding means the code diverges from the IR (an extra field is accepted, a required one is not validated, the method or path does not match, a readonly field is mutated, uniqueness is not enforced).
 ${RULES}`,
         { schema: FINDINGS, agentType: 'reviewer-logical', phase: 'IR', label: `ir:${name}` },
@@ -169,7 +180,7 @@ if (canRun('BEHAVIOR', 300_000)) {
         `Read ${D}/behavior/${file}. It is a behavioral spec (invariant / pre / post per operation).
 Find the implementing code in: ${CODEBASES} (grep by entity, fields, statuses, paths). For EVERY contract decide: implemented correctly / implemented with a divergence / no code at all.
 A divergence becomes a finding. No code becomes a not_implemented line of the form "${file} § <operation>: no code in <where you looked>". Correct means nothing to report.
-The prototype in frontend-app counts as code too: frontend behavior that diverges from the contract is a real divergence.
+Frontend code in these codebases counts too: frontend behavior that diverges from the contract is a real divergence.
 ${RULES}`,
         { schema: FINDINGS, agentType: 'reviewer-logical', phase: 'BEHAVIOR', label: `behavior:${file}` },
       ),

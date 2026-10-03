@@ -1,7 +1,7 @@
 # forge — an autonomous agent loop that ships to merge
 
-**forge** takes a queue of tasks in a real repository and drives each one to a merged commit on its
-own: a coding agent implements it on a branch, quality gates decide whether it regressed anything,
+**forge** is a maintenance loop for mature code. It takes a queue of human-triaged defects in an
+existing repository and drives each one to a merged commit on its own: a coding agent implements it on a branch, quality gates decide whether it regressed anything,
 two independent reviewers judge it from a freshly generated diff, and the loop merges, deletes the
 branch, records what happened, and picks up the next task.
 
@@ -136,8 +136,8 @@ discover (read-only) → human triage → SELECT → BUILD → GATE → REVIEW �
 | `INTEGRATE` | Denylist verified, merge `--no-ff`, branch deleted |
 | `RECORD` | Journal entry, attempt state, token accounting, run-log line |
 
-Two modes share the flow and differ only in what the gate means: **IMPROVE** for mature code
-(tests/types/lint/build) and **BUILD** for greenfield (artifact validity and compilation).
+There is one mode: maintenance of a codebase that already has a lint/typecheck/test/build baseline.
+`BUILD` above is the implement step of that loop, not a mode for writing new software.
 
 ---
 
@@ -154,6 +154,24 @@ concepts above are not tied to that runtime — the loop, the gates and the stat
 portable part.
 
 ---
+
+## Limits
+
+What forge does not do, stated before you rely on it:
+
+- **No planning or decomposition.** Tasks are defect-sized cards taken top to bottom; there are no
+  priorities, dependencies or estimates, and nothing designs a change before it is implemented.
+- **No test-first step.** The implement step is not asked to write a failing test; the gate proves
+  that nothing previously working broke, not that the task is done.
+- **"Done" is judged by reviewers, not by a test.** The card's done-criterion is checked by the two
+  reviewer agents, which is an opinion with structure, not a mechanical proof.
+- **Specifications are used only by discover.** Contracts and the API model help find defects; they are
+  not passed to the loop that fixes them.
+- **The evidence is small.** Two tasks on one private repository. The review design is a belief until
+  it is measured — see `openspec/changes/review-independence-eval/` for the experiment that tests it.
+
+For feature work, use a spec-driven pipeline (proposal → spec → failing test → implementation) and keep
+forge for what it is built for: working down a triaged defect queue without supervision.
 
 ## What this is not
 

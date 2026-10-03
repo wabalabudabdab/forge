@@ -1,12 +1,12 @@
 ---
 name: forge
-description: Autonomous agent loop-director. Takes tasks from a project queue and drives each one to a merge through gates (tests/types/lint/build) and independent review, cleaning up its own branches. Triggers — "forge", "/forge", "run the loop", "drive the project", "work the queue". Works on mature code (IMPROVE) and greenfield (BUILD). NOT for a one-off edit — for iterative work through a task queue.
+description: Autonomous agent loop-director. Takes tasks from a project queue and drives each one to a merge through gates (tests/types/lint/build) and independent review, cleaning up its own branches. Triggers — "forge", "/forge", "run the loop", "drive the project", "work the queue". Maintenance of mature code only (an existing lint/test/build baseline). NOT for greenfield or feature development, NOT for a one-off edit — for working down a triaged defect queue.
 ---
 
-# forge — an agent loop that drives a project to done
+# forge — an agent loop that works down a defect queue
 
-> A director that picks up a project and works it task by task until it runs,
-> then keeps improving it. Every task goes through the full circle and **cleans up after itself**.
+> Works down a triaged defect queue on a mature codebase, one task at a time.
+> Every task goes through the full circle and **cleans up after itself**.
 
 ## Activation
 Triggers: `forge`, `/forge`, "run the loop", "drive the project", "work the queue".
@@ -36,9 +36,11 @@ Every finding is handed to an independent agent whose job is to refute it; "not 
 The result is a `## Discover — <date>` section in `STATE.md` with cards: Where / Code / Analysis / Cause / Spec / Fix options / Done when / Decision.
 ```
 Workflow({ scriptPath: "discover.workflow.js",
-  args: { projectPath, extraPaths, stateFile, druidDir, gates: { lint, test }, maxTokens, runAt: "<date>" } })
+  args: { projectPath, extraPaths, stateFile, druidDir, gates: { lint, test },
+          layout: { moduleRoots: ["src"], routesDir: null, irCodeDirs: ["src"] },   // paths relative to projectPath
+          maxTokens, runAt: "<date>" } })
 ```
-Defaults are placeholders — override them through args. Always pass `runAt`: the script has no access to `Date`.
+Defaults are placeholders — override them through args. `layout` tells discover where the code lives; with `routesDir: null` routes are located by search instead of a fixed folder. Always pass `runAt`: the script has no access to `Date`.
 A human triages each card with **Decision:** `go` (or `go, option 2`), `reject`, `later`. Only then does the loop run.
 
 ## Running the loop
@@ -83,6 +85,6 @@ If no args are passed, the defaults in the script header apply.
 
 The discipline comes from loop engineering: maker/checker, attempt limits, denylist, budget, run-log, kill switch.
 
-## Modes
-- **IMPROVE** (mature code): gates = tests/types/lint/build. Proven on a production monorepo (lint 83 → 0, then 12 failing tests → 0).
-- **BUILD** (greenfield): gates = artifact validity + compilation. For Workflow scripts, compile inside an async wrapper (`vm.Script`), NOT bare `node --check` — the latter reports a false error on a top-level return.
+## Scope
+One mode: maintenance of mature code. Gates = tests/types/lint/build against the recorded baseline. Run on one production monorepo (lint 83 → 0, then 12 failing tests → 0).
+Out of scope: greenfield and feature work (no design, spec or test-first phase exists in the loop), planning and decomposition. See README → Limits.
